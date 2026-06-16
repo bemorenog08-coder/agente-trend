@@ -371,6 +371,65 @@ def calculadora(expresion: str) -> str:
         return f"Error al evaluar '{expresion}': {exc}. Usa operadores válidos: +, -, *, /, **, sqrt(), log()."
 
 
+# ─── HERRAMIENTA 6: GOOGLE TRENDS (DATOS REALES) ────────────
+
+@tool
+def tendencia_google(termino: str, periodo: str = "hoy 3-m") -> str:
+    """
+    Consulta Google Trends para obtener el nivel de interés real
+    de un término de búsqueda en los últimos meses.
+    Parámetros:
+      termino: palabra o frase a buscar, ej: 'smartwatch', 'earbuds gaming'
+      periodo: ventana de tiempo. Opciones:
+               'hoy 1-m' (último mes),
+               'hoy 3-m' (últimos 3 meses, por defecto),
+               'hoy 12-m' (último año)
+    Devuelve: promedio de interés (0-100), pico máximo y tendencia reciente.
+    """
+    try:
+        from pytrends.request import TrendReq
+        import pandas as pd
+
+        pytrends = TrendReq(hl="es-419", tz=300, timeout=(10, 25))
+        pytrends.build_payload(
+            kw_list=[termino],
+            cat=0,
+            timeframe=periodo,
+            geo="",       # mundial; cambia a "CO", "MX", "ES" para un país
+            gprop="",
+        )
+        df = pytrends.interest_over_time()
+
+        if df.empty or termino not in df.columns:
+            return f"Google Trends no devolvió datos para '{termino}'. Intenta con un término más general."
+
+        serie = df[termino]
+        promedio = int(serie.mean())
+        maximo = int(serie.max())
+        ultimo = int(serie.iloc[-1])
+        penultimo = int(serie.iloc[-2]) if len(serie) > 1 else ultimo
+        tendencia = "↑ subiendo" if ultimo > penultimo else "↓ bajando" if ultimo < penultimo else "→ estable"
+
+        # Fecha del pico
+        fecha_pico = serie.idxmax().strftime("%b %Y")
+
+        return f"""
+🌐 GOOGLE TRENDS — "{termino}" ({periodo})
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Interés promedio:   {promedio}/100
+Pico máximo:        {maximo}/100 (en {fecha_pico})
+Interés reciente:   {ultimo}/100 {tendencia}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Escala: 100 = máximo interés histórico en el período.
+Fuente: Google Trends (datos en tiempo real)
+"""
+    except Exception as exc:
+        return (
+            f"Error consultando Google Trends para '{termino}': {exc}. "
+            "Verifica tu conexión a internet o intenta con otro término."
+        )
+
+
 # Lista exportable de todas las herramientas (se importa en agent_core.py)
 TOOLS = [
     buscar_tendencia_categoria,
@@ -378,4 +437,5 @@ TOOLS = [
     analizar_oportunidad,
     precio_referencia,
     calculadora,
+    tendencia_google,
 ]
